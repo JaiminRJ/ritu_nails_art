@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
-import 'package:http_parser/http_parser.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NailPortfolioItem {
   final int id;
@@ -11,6 +11,7 @@ class NailPortfolioItem {
   final String categoryName;
   final String imageUrl;
   final double price;
+  final String description;
 
   NailPortfolioItem({
     required this.id,
@@ -18,24 +19,25 @@ class NailPortfolioItem {
     required this.categoryName,
     required this.imageUrl,
     required this.price,
+    this.description = '',
   });
 
   factory NailPortfolioItem.fromJson(Map<String, dynamic> json) {
     var rawPrice = json['price'];
-  double parsedPrice = 0.0;
+    double parsedPrice = 0.0;
 
-  if (rawPrice is num) {
-    parsedPrice = rawPrice.toDouble();
-  } else if (rawPrice is String) {
-    // Remove comma and parse
-    parsedPrice = double.tryParse(rawPrice.replaceAll(',', '').trim()) ?? 0.0;
-  }
+    if (rawPrice is num) {
+      parsedPrice = rawPrice.toDouble();
+    } else if (rawPrice is String) {
+      parsedPrice = double.tryParse(rawPrice.replaceAll(',', '').trim()) ?? 0.0;
+    }
     return NailPortfolioItem(
       id: json['id'] ?? 0,
       title: json['title'] ?? '',
       categoryName: json['categoryName'] ?? 'Portfolio',
       imageUrl: json['imageUrl'] ?? '',
       price: parsedPrice,
+      description: json['description']?.toString() ?? '',
     );
   }
 }
@@ -95,9 +97,9 @@ class HairPortfolioItem {
 class ApiService {
   static String get _baseUrl {
     if (!kIsWeb && Platform.isAndroid) {
-      return 'https://10.0.2.2:7276/api';
+      return 'https://10.0.2.2:61754/api';
     }
-    return 'https://localhost:7276/api';
+    return 'https://localhost:61754/api';
   }
 
   static http.Client get _client {
@@ -118,6 +120,91 @@ class ApiService {
   }
 
   // ==========================================
+  // SESSION & ROLE MANAGEMENT
+  // ==========================================
+  static String? _cachedToken;
+  static Map<String, dynamic>? _cachedUser;
+
+  static const String _prefTokenKey = 'auth_token';
+  static const String _prefUserKey = 'auth_user';
+
+  /// Saves token and user details to device storage and memory cache
+  static Future<void> saveAuthData({
+    required String token,
+    Map<String, dynamic>? user,
+  }) async {
+    _cachedToken = token;
+    _cachedUser = user;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefTokenKey, token);
+      if (user != null) {
+        await prefs.setString(_prefUserKey, jsonEncode(user));
+      }
+    } catch (e) {
+      debugPrint('SharedPreferences not available or failed: $e');
+    }
+  }
+
+  /// Clears stored user session
+  static Future<void> logout() async {
+    _cachedToken = null;
+    _cachedUser = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefTokenKey);
+      await prefs.remove(_prefUserKey);
+    } catch (_) {}
+  }
+
+  /// Retrieves the current JWT token
+  static Future<String?> getToken() async {
+    if (_cachedToken != null) return _cachedToken;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _cachedToken = prefs.getString(_prefTokenKey);
+      return _cachedToken;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Retrieves the stored user profile map
+  static Future<Map<String, dynamic>?> getCurrentUser() async {
+    if (_cachedUser != null) return _cachedUser;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userString = prefs.getString(_prefUserKey);
+      if (userString != null && userString.isNotEmpty) {
+        _cachedUser = jsonDecode(userString) as Map<String, dynamic>;
+      }
+      return _cachedUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Helper used by UI to check if the active user is an Admin
+  static Future<bool> isAdmin() async {
+    final user = await getCurrentUser();
+    if (user == null) return false;
+
+    // Checks "roles": ["Admin", ...] or "roles": "Admin"
+    final dynamic rolesData = user['roles'] ?? user['role'];
+    if (rolesData is List) {
+      return rolesData.any((r) => r.toString().toLowerCase() == 'admin');
+    } else if (rolesData is String) {
+      return rolesData.toLowerCase() == 'admin';
+    }
+
+    return false;
+  }
+
+  // ==========================================
+  // AUTH - REGISTER
+  // ==========================================
+ // ==========================================
   // AUTH - REGISTER
   // ==========================================
   static Future<Map<String, dynamic>> register({
@@ -125,6 +212,7 @@ class ApiService {
     required String email,
     required String password,
     required String confirmPassword,
+    String? mobileNumber,
   }) async {
     final url = Uri.parse('$_baseUrl/auth/register');
 
@@ -133,18 +221,28 @@ class ApiService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept': 'application/json', 
         },
         body: jsonEncode({
           'fullName': fullName,
           'email': email,
           'password': password,
           'confirmPassword': confirmPassword,
+          'mobileNumber': mobileNumber,
         }),
       );
 
-      final Map<String, dynamic> responseData =
-          response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      // Safe JSON decode to avoid FormatException
+      dynamic responseData;
+      try {
+        responseData = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      } catch (_) {
+        debugPrint('--> Raw Backend Error: ${response.body}');
+        return {
+          'success': false,
+          'message': 'Backend Error (${response.statusCode}): ${response.body}',
+        };
+      }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {
@@ -152,9 +250,9 @@ class ApiService {
           'message': responseData['message'] ?? 'Account created successfully',
         };
       } else {
-        final errorMessage = responseData['message'] ??
-            responseData['title'] ??
-            'Registration failed (${response.statusCode})';
+        final errorMessage = responseData is Map
+            ? (responseData['message'] ?? responseData['title'] ?? 'Registration failed')
+            : 'Error (${response.statusCode})';
         return {
           'success': false,
           'message': errorMessage,
@@ -194,11 +292,21 @@ class ApiService {
           response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final token = responseData['token']?.toString() ?? '';
+        final user = responseData['user'] is Map<String, dynamic>
+            ? responseData['user'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
+        // Automatically save session token & user info (including roles)
+        if (token.isNotEmpty) {
+          await saveAuthData(token: token, user: user);
+        }
+
         return {
           'success': true,
           'message': responseData['message'] ?? 'Login successful',
-          'token': responseData['token'],
-          'user': responseData['user'],
+          'token': token,
+          'user': user,
         };
       } else {
         final errorMessage = responseData['message'] ??
@@ -218,15 +326,12 @@ class ApiService {
   }
 
   // ==========================================
-  // CATEGORIES - CREATE (Dynamic by serviceType)
+  // AUTH - GOOGLE LOGIN
   // ==========================================
-  static Future<Map<String, dynamic>> createCategory(
-    String name, {
-    String? serviceType,
+  static Future<Map<String, dynamic>> googleLogin({
+    required String idToken,
   }) async {
-    final endpoint = _resolveEndpoint(serviceType);
-    final url = Uri.parse('$_baseUrl/$endpoint/addcategories');
-    debugPrint('--> [POST] createCategory to: $url');
+    final url = Uri.parse('$_baseUrl/GoogleLogin/google-login');
 
     try {
       final response = await _client.post(
@@ -235,6 +340,68 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        body: jsonEncode({'idToken': idToken}),
+      );
+
+      final Map<String, dynamic> responseData =
+          response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final token = responseData['token']?.toString() ?? '';
+        final user = responseData['user'] is Map<String, dynamic>
+            ? responseData['user'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
+        if (token.isNotEmpty) {
+          await saveAuthData(token: token, user: user);
+        }
+
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Login successful',
+          'token': token,
+          'user': user,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ??
+              responseData['title'] ??
+              'Google login failed (${response.statusCode})',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Unable to connect to server: $e',
+      };
+    }
+  }
+
+  // ==========================================
+  // CATEGORIES - CREATE (Dynamic by serviceType)
+  // ==========================================
+  static Future<Map<String, dynamic>> createCategory(
+    String name, {
+    String? serviceType,
+  }) async {
+    final endpoint = _resolveEndpoint(serviceType);
+    final url = Uri.parse('$_baseUrl/$endpoint/addcategories');
+    final token = await getToken();
+    debugPrint('--> [POST] createCategory to: $url');
+
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await _client.post(
+        url,
+        headers: headers,
         body: jsonEncode({
           'Name': name.trim(),
           'DisplayOrder': 0,
@@ -359,8 +526,10 @@ class ApiService {
     try {
       final request = http.MultipartRequest('POST', url);
 
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+      // If token wasn't directly passed, resolve it automatically from storage
+      final effectiveToken = token ?? await getToken();
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $effectiveToken';
       }
       request.headers['Accept'] = 'application/json';
 
@@ -397,7 +566,7 @@ class ApiService {
           'ImageFile',
           imageBytes,
           filename: filename.isEmpty ? 'upload.$mimeSubtype' : filename,
-          contentType: MediaType('image', mimeSubtype),
+          contentType: http.MediaType('image', mimeSubtype),
         ),
       );
 
@@ -519,4 +688,59 @@ class ApiService {
         serviceType: 'Hair',
         token: token,
       );
+
+  // ==========================================
+  // FEEDBACK - SUBMIT
+  // ==========================================
+  static Future<Map<String, dynamic>> submitFeedback({
+    required int rating,
+    required String comments,
+    String? token,
+  }) async {
+    final url = Uri.parse('$_baseUrl/FeedbackApi');
+
+    try {
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      final effectiveToken = token ?? await getToken();
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $effectiveToken';
+      }
+
+      final response = await _client.post(
+        url,
+        headers: headers,
+        body: jsonEncode({
+          'rating': rating,
+          'comments': comments.trim(),
+        }),
+      );
+
+      final Map<String, dynamic> responseData =
+          response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Feedback submitted successfully',
+          'data': responseData['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ??
+              'Failed to submit feedback (${response.statusCode})',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error submitting feedback: $e');
+      return {
+        'success': false,
+        'message': 'Unable to connect to server: $e',
+      };
+    }
+  }
 }

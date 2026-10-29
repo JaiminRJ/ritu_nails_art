@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../services/api_service.dart';
 import '../auth/login_screen.dart';
-import '../common/portfolio_gallery_screen.dart';
 import '../courses/courses_screen.dart';
 import '../common/feedback_sheet.dart';
+
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../screens/nails/nails_screen.dart';
 import '../../screens/makeup/makeup_screen.dart';
 import '../../screens/hair/hair_screen.dart';
+import '../settings/profile_settings_screen.dart';
+import '../settings/notifications_screen.dart';
+import '../settings/privacy_security_screen.dart';
+import '../settings/help_support_screen.dart';
+import '../settings/feedback_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,137 +27,63 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
-  // Global key to reload NailsScreen after category creation
-  Key _nailsScreenKey = UniqueKey();
-
-  Future<void> _showAddCategoryDialog() async {
-    final TextEditingController catController = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        bool isSubmitting = false;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Add Category', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: TextField(
-                controller: catController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Category Name',
-                  hintText: 'e.g., Ombre, Gel Extensions',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final name = catController.text.trim();
-                          if (name.isEmpty) return;
-
-                          setDialogState(() => isSubmitting = true);
-
-                          final result = await ApiService.createCategory(name);
-
-                          if (!mounted) return;
-
-                          if (result['success'] == true) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(result['message'] ?? 'Category added successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            // Refresh NailsScreen
-                            setState(() {
-                              _nailsScreenKey = UniqueKey();
-                            });
-                          } else {
-                            setDialogState(() => isSubmitting = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(result['message'] ?? 'Failed to add category'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Add'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    const navigationIcons = <IconData>[
+      Icons.home_outlined,
+      Icons.brush_outlined,
+      Icons.face_retouching_natural_outlined,
+      Icons.content_cut_outlined,
+      Icons.school_outlined,
+      Icons.settings_outlined,
+    ];
+    const selectedNavigationIcons = <IconData>[
+      Icons.home,
+      Icons.brush,
+      Icons.face_retouching_natural,
+      Icons.content_cut,
+      Icons.school,
+      Icons.settings,
+    ];
+    const navigationLabels = <String>[
+      'Ritu MakeOver',
+      'Nails',
+      'Makeup',
+      'Hair',
+      'Courses',
+      'Settings',
+    ];
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        centerTitle: true,
         title: Text(
           _getAppBarTitle(_currentIndex),
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.pacifico(
+            fontSize: 25,
+            fontWeight: FontWeight.w400,
+            color: Colors.black,
+            letterSpacing: 0.5,
+          ),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          // Show "+" Add Category icon on service screens (Nails, Makeup, Hair)
-          if (_currentIndex == 1 || _currentIndex == 2 || _currentIndex == 3)
-            IconButton(
-              tooltip: 'Add Category',
-              icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 24),
-              onPressed: _showAddCategoryDialog,
-            ),
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () {
                 setState(() {
-                  _currentIndex = 5; // Jump to settings
+                  _currentIndex = 5;
                 });
               },
               child: const CircleAvatar(
                 radius: 18,
-                backgroundColor: Colors.white24,
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 22,
-                ),
+                backgroundColor: Color(0xFFE0E0E0),
+                child: Icon(Icons.person, color: Colors.black, size: 22),
               ),
             ),
           ),
@@ -164,67 +98,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.chat_bubble_outline_rounded, size: 24),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey.shade500,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5),
-          unselectedLabelStyle: const TextStyle(fontSize: 10.5),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.brush_outlined),
-              activeIcon: Icon(Icons.brush),
-              label: 'Nails',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.face_retouching_natural_outlined),
-              activeIcon: Icon(Icons.face_retouching_natural),
-              label: 'Makeup',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.content_cut_outlined),
-              activeIcon: Icon(Icons.content_cut),
-              label: 'Hair',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.school_outlined),
-              activeIcon: Icon(Icons.school),
-              label: 'Courses',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: List.generate(navigationLabels.length, (index) {
+              final isSelected = _currentIndex == index;
+
+              return Expanded(
+                child: Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label: navigationLabels[index],
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => setState(() => _currentIndex = index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSelected
+                                ? selectedNavigationIcons[index]
+                                : navigationIcons[index],
+                            size: 20,
+                            color: isSelected
+                                ? Colors.black
+                                : Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            navigationLabels[index],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.grey.shade400,
+                              fontSize: 9,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );
@@ -233,7 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _getAppBarTitle(int index) {
     switch (index) {
       case 0:
-        return 'Home';
+        return 'Ritu MakeOver';
       case 1:
         return 'Nails Art';
       case 2:
@@ -245,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 5:
         return 'Settings';
       default:
-        return 'Home';
+        return 'Ritu MakeOver';
     }
   }
 
@@ -286,14 +234,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primary.withOpacity(0.85)],
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withValues(alpha: 0.85),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.25),
+                    color: AppColors.primary.withValues(alpha: 0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -326,7 +277,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text('Explore Services', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Explore Services',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -338,7 +292,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildQuickCategoryItem('Nails', Icons.brush_outlined, 1),
-                _buildQuickCategoryItem('Makeup', Icons.face_retouching_natural_outlined, 2),
+                _buildQuickCategoryItem(
+                  'Makeup',
+                  Icons.face_retouching_natural_outlined,
+                  2,
+                ),
                 _buildQuickCategoryItem('Hair', Icons.content_cut_outlined, 3),
                 _buildQuickCategoryItem('Courses', Icons.school_outlined, 4),
               ],
@@ -354,7 +312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 border: Border.all(color: Colors.grey.shade200),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -367,8 +325,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       CircleAvatar(
                         radius: 32,
-                        backgroundColor: AppColors.primary.withOpacity(0.12),
-                        child: const Icon(Icons.person, size: 36, color: AppColors.primary),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.12,
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          size: 36,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -383,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 color: Colors.black87,
                               ),
                             ),
-                            Text(
+                            const Text(
                               'Master Nail & Bridal Artist',
                               style: TextStyle(
                                 fontSize: 13,
@@ -455,11 +419,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                _buildFeatureBadge(Icons.verified_outlined, '100% Certified', 'Certified Academy'),
+                _buildFeatureBadge(
+                  Icons.verified_outlined,
+                  '100% Certified',
+                  'Certified Academy',
+                ),
                 const SizedBox(width: 8),
-                _buildFeatureBadge(Icons.clean_hands_outlined, 'Sterilized Kits', 'Strict Hygiene'),
+                _buildFeatureBadge(
+                  Icons.clean_hands_outlined,
+                  'Sterilized Kits',
+                  'Strict Hygiene',
+                ),
                 const SizedBox(width: 8),
-                _buildFeatureBadge(Icons.star_outline, 'Top Quality', 'Premium Brands'),
+                _buildFeatureBadge(
+                  Icons.star_outline,
+                  'Top Quality',
+                  'Premium Brands',
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -489,7 +465,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               minimumSize: const Size(50, 30),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('View All', style: TextStyle(color: AppColors.primary, fontSize: 13)),
+            child: const Text(
+              'View All',
+              style: TextStyle(color: AppColors.primary, fontSize: 13),
+            ),
           ),
       ],
     );
@@ -500,7 +479,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Text(
           count,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -512,14 +495,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildVerticalDivider() {
-    return Container(
-      height: 28,
-      width: 1,
-      color: Colors.grey.shade200,
-    );
+    return Container(height: 28, width: 1, color: Colors.grey.shade200);
   }
 
-  Widget _buildPortfolioCard(String title, String tag, String imageUrl, int targetIndex) {
+  Widget _buildPortfolioCard(
+    String title,
+    String tag,
+    String imageUrl,
+    int targetIndex,
+  ) {
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = targetIndex),
       child: Container(
@@ -531,7 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -558,9 +542,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -577,7 +564,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -595,7 +585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: AppColors.primary.withOpacity(0.08),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.08),
             child: Icon(icon, color: AppColors.primary, size: 22),
           ),
           const SizedBox(height: 6),
@@ -643,29 +633,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(20.0),
         children: [
-          _buildSettingsTile(Icons.person_outline, 'Profile Settings', () {}),
-          _buildSettingsTile(Icons.notifications_none, 'Notifications', () {}),
-          _buildSettingsTile(Icons.lock_outline, 'Privacy & Security', () {}),
-          _buildSettingsTile(Icons.help_outline, 'Help & Support', () {}),
-          const Divider(height: 32),
           _buildSettingsTile(
-            Icons.logout,
-            'Logout',
-            () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            color: Colors.redAccent,
+            Icons.person_outline,
+            'Profile Settings',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+            ),
           ),
+          _buildSettingsTile(
+            Icons.notifications_none,
+            'Notifications',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ),
+          ),
+          _buildSettingsTile(
+            Icons.lock_outline,
+            'Privacy & Security',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()),
+            ),
+          ),
+
+          _buildSettingsTile(
+            Icons.help_outline,
+            'Help & Support',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+            ),
+          ),
+          _buildSettingsTile(
+            Icons.feedback_outlined,
+            'Feedback List',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FeedbackListScreen()),
+            ),
+          ),
+          const Divider(height: 32),
+          _buildSettingsTile(Icons.logout, 'Logout', () async {
+            await ApiService.logout();
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false,
+            );
+          }, color: Colors.redAccent),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsTile(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+  Widget _buildSettingsTile(
+    IconData icon,
+    String title,
+    VoidCallback onTap, {
+    Color? color,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -682,7 +711,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey,
+        ),
         onTap: onTap,
       ),
     );

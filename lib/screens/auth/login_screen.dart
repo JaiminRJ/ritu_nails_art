@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/validators.dart';
-import 'signup_screen.dart'; // Adjust path if signup_screen is in a different folder
+import 'signup_screen.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/login_header.dart';
-import '../dashboard/dashboard_screen.dart'; // Adjust path if dashboard_screen is in a different folder
+import '../dashboard/dashboard_screen.dart';
 import '../../services/api_service.dart';
-
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +21,17 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
+
+  // Specify serverClientId (your Web Client ID from Google Cloud Console)
+  // so Google returns an idToken for backend verification.
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  clientId: '923635670429-rujct6nvlkavjdvm9nj2vqe972qv97en.apps.googleusercontent.com',
+  scopes: <String>[
+    'email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+  ],
+);
 
   @override
   void dispose() {
@@ -30,14 +40,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
- Future<void> _handleLogin() async {
-    // 1. Check form validation
+  Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 2. Actually call the backend API
       final result = await ApiService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -45,39 +53,86 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // 3. Handle success or error
       if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] as String),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Redirect to Dashboard
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const DashboardScreen(),
-          ),
-        );
+        _onLoginSuccess(result['message'] as String);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] as String),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showErrorSnackBar(result['message'] as String);
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      await _googleSignIn.signOut();
+
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      if (account == null) {
+        return; // User closed the popup
+      }
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+
+      // Web returns accessToken; mobile returns idToken
+      final String? token = auth.idToken ?? auth.accessToken;
+
+      if (token == null) {
+        _showErrorSnackBar("Failed to retrieve Google credentials.");
+        return;
+      }
+
+      // Send token to backend
+      final result = await ApiService.googleLogin(idToken: token);
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        _onLoginSuccess(result['message'] as String);
+      } else {
+        _showErrorSnackBar(result['message'] as String);
+      }
+    } catch (e) {
+      debugPrint('Google Sign-In Error: $e');
+      if (mounted) {
+        _showErrorSnackBar('Sign in failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  void _onLoginSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DashboardScreen(),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isAnyLoading = _isLoading || _isGoogleLoading;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -127,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
+                      onPressed: isAnyLoading ? null : _handleLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -148,9 +203,79 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text(
                               'Sign In',
                               style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w600),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                     ),
+                    const SizedBox(height: 20),
+
+                    // --- Divider ---
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // --- Google Login Button ---
+                    OutlinedButton(
+                      onPressed: isAnyLoading ? null : _handleGoogleSignIn,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: Colors.white,
+                      ),
+                      child: _isGoogleLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black54,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.network(
+                                  'https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg',
+                                  height: 20,
+                                  width: 20,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.g_mobiledata,
+                                    size: 24,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+
                     const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

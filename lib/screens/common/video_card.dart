@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
+import '../../core/constants/app_colors.dart';
 import 'subscription_dialog.dart';
 
 class VideoTutorial {
@@ -7,6 +11,8 @@ class VideoTutorial {
   final String category; // 'Nails', 'Makeup', 'Hair'
   final String duration;
   final String thumbnailUrl;
+  final Uint8List? thumbnailBytes;
+  final String? videoUrl;
   final bool isPremium;
 
   VideoTutorial({
@@ -15,6 +21,8 @@ class VideoTutorial {
     required this.category,
     required this.duration,
     required this.thumbnailUrl,
+    this.thumbnailBytes,
+    this.videoUrl,
     this.isPremium = true,
   });
 }
@@ -66,16 +74,26 @@ class VideoCard extends StatelessWidget {
                   height: 175,
                   width: double.infinity,
                   color: Colors.grey[200],
-                  child: Image.network(
-                    video.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, _, __) => Container(
-                      color: const Color(0xFF2D0C5E).withOpacity(0.08),
-                      child: const Center(
-                        child: Icon(Icons.play_circle_outline, size: 48, color: Color(0xFF7030A0)),
-                      ),
-                    ),
-                  ),
+                  child: video.thumbnailBytes != null
+                      ? Image.memory(
+                          video.thumbnailBytes!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        )
+                      : Image.network(
+                          video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, _, __) => Container(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                size: 48,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
                 ),
                 // Lock Badge
                 if (isLocked)
@@ -83,20 +101,23 @@ class VideoCard extends StatelessWidget {
                     top: 10,
                     right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.75),
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock, size: 13, color: Color(0xFFFFD700)),
+                          Icon(Icons.lock, size: 13, color: AppColors.secondary),
                           SizedBox(width: 4),
                           Text(
                             "Premium",
                             style: TextStyle(
-                              color: Color(0xFFFFD700),
+                              color: AppColors.secondary,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
@@ -110,9 +131,12 @@ class VideoCard extends StatelessWidget {
                   bottom: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -137,7 +161,7 @@ class VideoCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF7030A0),
+                            color: AppColors.primary,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -146,7 +170,7 @@ class VideoCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1A1A1A),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ],
@@ -154,7 +178,7 @@ class VideoCard extends StatelessWidget {
                   ),
                   Icon(
                     isLocked ? Icons.lock_outline : Icons.play_arrow_rounded,
-                    color: isLocked ? Colors.grey : const Color(0xFF7030A0),
+                    color: isLocked ? Colors.grey : AppColors.primary,
                   ),
                 ],
               ),

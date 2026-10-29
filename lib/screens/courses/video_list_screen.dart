@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import '../common/video_card.dart';
 import '../auth/widgets/course_payment_sheet.dart'; // Uses your existing payment sheet
 
@@ -85,8 +86,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Video Masterclasses', style: TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFF7030A0),
+          title: const Text(
+            'Video Masterclasses',
+            style: TextStyle(
+              fontFamily: 'cursive',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           bottom: const TabBar(
             isScrollable: true,

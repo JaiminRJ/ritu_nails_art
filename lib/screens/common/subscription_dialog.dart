@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
+
 class SubscriptionDialog extends StatelessWidget {
   final String videoTitle;
   final VoidCallback onProceedToPayment;
@@ -38,13 +40,13 @@ class SubscriptionDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF7030A0).withOpacity(0.12),
+                color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.workspace_premium_rounded,
                 size: 38,
-                color: Color(0xFF7030A0),
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 14),
@@ -53,7 +55,7 @@ class SubscriptionDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2D0C5E),
+                color: AppColors.primaryDark,
               ),
               textAlign: TextAlign.center,
             ),
@@ -69,7 +71,7 @@ class SubscriptionDialog extends StatelessWidget {
               height: 46,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7030A0),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,

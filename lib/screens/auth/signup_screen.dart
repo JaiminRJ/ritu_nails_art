@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/validators.dart';
@@ -17,10 +18,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _mobileNumberController = TextEditingController();
+  final _captchaController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  String _generatedCaptcha = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCaptcha();
+  }
 
   @override
   void dispose() {
@@ -28,7 +38,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _mobileNumberController.dispose();
+    _captchaController.dispose();
     super.dispose();
+  }
+
+  void _refreshCaptcha() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random();
+
+    setState(() {
+      _generatedCaptcha = List.generate(
+        5,
+        (index) => chars[random.nextInt(chars.length)],
+      ).join();
+      _captchaController.clear();
+    });
   }
 
   Future<void> _handleSignUp() async {
@@ -42,6 +67,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         confirmPassword: _confirmPasswordController.text,
+        mobileNumber: _mobileNumberController.text.trim(),
       );
 
       if (!mounted) return;
@@ -61,12 +87,66 @@ class _SignUpScreenState extends State<SignUpScreen> {
             backgroundColor: Colors.red,
           ),
         );
+        _refreshCaptcha();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _refreshCaptcha();
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Widget _buildCaptchaBox() {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Text(
+              _generatedCaptcha,
+              style: const TextStyle(
+                fontSize: 18,
+                letterSpacing: 4,
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+                color: AppColors.primary,
+                decoration: TextDecoration.lineThrough,
+                decorationThickness: 1.8, 
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Refresh Captcha',
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.primary, size: 22),
+            onPressed: _refreshCaptcha,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -92,7 +172,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           color: AppColors.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.person_add_rounded,
                           size: 48,
                           color: AppColors.primary,
@@ -193,6 +273,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Mobile Field
+                    CustomTextField(
+                      controller: _mobileNumberController,
+                      label: 'Mobile Number',
+                      prefixIcon: Icons.phone,
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your mobile number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Captcha Section
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+  child: CustomTextField(
+    controller: _captchaController,
+    label: 'Enter Captcha',
+    prefixIcon: Icons.verified_user_outlined,
+    // Remove or comment out textCapitalization:
+    validator: (value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Enter captcha code';
+      }
+      if (value.trim().toUpperCase() != _generatedCaptcha) {
+        return 'Incorrect captcha';
+      }
+      return null;
+    },
+  ),
+),
+                        const SizedBox(width: 12),
+                        _buildCaptchaBox(),
+                      ],
+                    ),
                     const SizedBox(height: 28),
 
                     // Sign Up Submit Button
@@ -237,7 +359,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ],
                     ),
                   ],
-                ),
+                ),                 
               ),
             ),
           ),

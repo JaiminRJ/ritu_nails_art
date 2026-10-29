@@ -166,7 +166,7 @@ class _CoursePaymentSheetState extends State<CoursePaymentSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey.shade100,
+            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? AppColors.primary : Colors.transparent,
@@ -215,7 +215,7 @@ class _CoursePaymentSheetState extends State<CoursePaymentSheet> {
       key: const ValueKey(0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -254,7 +254,7 @@ class _CoursePaymentSheetState extends State<CoursePaymentSheet> {
       key: const ValueKey(1),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -291,7 +291,7 @@ class _CoursePaymentSheetState extends State<CoursePaymentSheet> {
       key: const ValueKey(2),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),

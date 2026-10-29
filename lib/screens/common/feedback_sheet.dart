@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_colors.dart';
+import '../../services/api_service.dart';
 
 class FeedbackSheet extends StatefulWidget {
   const FeedbackSheet({super.key});
@@ -21,6 +23,7 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
   final TextEditingController _feedbackController = TextEditingController();
   int _selectedRating = 5;
   bool _isSubmitted = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,8 +31,9 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
     super.dispose();
   }
 
-  void _submitFeedback() {
-    if (_feedbackController.text.trim().isEmpty) {
+  Future<void> _submitFeedback() async {
+    final comments = _feedbackController.text.trim();
+    if (comments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please write a message before sending.')),
       );
@@ -37,21 +41,40 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
     }
 
     setState(() {
-      _isSubmitted = true;
+      _isLoading = true;
     });
 
-    // Auto-close after a brief success acknowledgement
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFF7030A0),
-            content: Text('Thank you! Your feedback has been received.'),
-          ),
-        );
-      }
+    // Call API (pass token if your app saves user login token)
+    final result = await ApiService.submitFeedback(
+      rating: _selectedRating,
+      comments: comments,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
     });
+
+    if (result['success'] == true) {
+      setState(() {
+        _isSubmitted = true;
+      });
+
+      // Auto-close after brief acknowledgement
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(result['message'] ?? 'Failed to submit feedback'),
+        ),
+      );
+    }
   }
 
   @override
@@ -76,10 +99,14 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.12),
+                          color: Colors.green.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check, color: Colors.green, size: 40),
+                        child: const Icon(
+                          Icons.check,
+                          color: Colors.green,
+                          size: 40,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
@@ -87,7 +114,7 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF2D0C5E),
+                          color: AppColors.primaryDark,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -122,32 +149,35 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7030A0).withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.chat_bubble_outline_rounded,
-                          color: Color(0xFF7030A0),
+                          color: AppColors.primary,
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text(
                               "We'd love your feedback! 💬",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2D0C5E),
+                                color: AppColors.primaryDark,
                               ),
                             ),
                             SizedBox(height: 2),
                             Text(
                               "Share suggestions, issues, or compliments",
-                              style: TextStyle(fontSize: 12, color: Colors.black54),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
                             ),
                           ],
                         ),
@@ -168,15 +198,19 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                       final starIndex = index + 1;
                       return IconButton(
                         icon: Icon(
-                          starIndex <= _selectedRating ? Icons.star_rounded : Icons.star_border_rounded,
+                          starIndex <= _selectedRating
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
                           color: Colors.amber,
                           size: 32,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _selectedRating = starIndex;
-                          });
-                        },
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedRating = starIndex;
+                                });
+                              },
                       );
                     }),
                   ),
@@ -186,12 +220,16 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                   // Text area
                   TextField(
                     controller: _feedbackController,
+                    enabled: !_isLoading,
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: "Write your feedback or questions here...",
-                      hintStyle: const TextStyle(fontSize: 13, color: Colors.black38),
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black38,
+                      ),
                       filled: true,
-                      fillColor: const Color(0xFFF8F9FA),
+                      fillColor: AppColors.background,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(color: Colors.grey.shade200),
@@ -200,34 +238,55 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(color: Colors.grey.shade200),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFF7030A0), width: 1.5),
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(14)),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Send button
+                  // Submit button
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: ElevatedButton.icon(
+                    child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7030A0),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: _submitFeedback,
-                      icon: const Icon(Icons.send_rounded, size: 18),
-                      label: const Text(
-                        "Submit Feedback",
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
+                      onPressed: _isLoading ? null : _submitFeedback,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.send_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Submit Feedback",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ],
